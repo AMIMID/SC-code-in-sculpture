@@ -279,16 +279,15 @@ rythm=[1,1/2,1,1,1/2];
 ////////////////////osc
 
 (
-SynthDef.new(\ostereo,
+SynthDef.new(\light,
 {
-arg decay=6,speed=1,octave=1,pl1=0,angle_r=0,gain=1,pl2=0;
+arg decay=6,speed=1,octave=2,pl1=0,angle_r=1,gain=1,pl2=4;
 var signal1,signal2,env,amp1,amp2,pl=0,nx,ny,mult=12;
 var pos1,pos2,phase1,phase2,mag,fundamental=55,freq,pitch1,pitch2;
 var amp,phase,c1,c2;
 
 fundamental=fundamental*speed.reciprocal;
 		freq=fundamental*octave;
-env=EnvGen.ar(Env.sine(decay,0.1),doneAction:2);
 
 
 		pos1=Select.kr(pl1,~posL)/(2.sqrt);
@@ -320,46 +319,41 @@ env=EnvGen.ar(Env.sine(decay,0.1),doneAction:2);
 				signal1=(Osc.ar(~b.bufnum,freq*pitch1,SinOsc.ar(c1.rho,phase,c1.theta.abs),amp1));
 				signal2=(Osc.ar(~b.bufnum,freq*pitch2,SinOsc.ar(c2.rho,phase,c2.theta.abs),amp2));
 
-				Out.ar(0,Pan2.ar(LeakDC.ar(signal1),pos1,env));
-				Out.ar(0,Pan2.ar(LeakDC.ar(signal2),pos2,env));
+				Out.ar(0,Pan2.ar(LeakDC.ar(signal1),pos1,0.1));
+				Out.ar(0,Pan2.ar(LeakDC.ar(signal2),pos2,0.1));
 
 }).add;
 );
-	({
-		var n=1.neg;
-		~list=(720*~time).collect{
-		n=n+1;
-		}
-		}.value
-	);
-		({
-		var angle=0;
-		~angle=(45*~time).collect{
-		angle=(angle+(360-(360/1.6180339887499))).wrap(0,360);
-		}
-		}.value
-	);
-(
-a=Pdef(\1, Pbind(\instrument, \ostereo,
-	\dur,Pseq(~dur1.mirror,inf),
-\angle_r,Pseq(~angle.mirror,inf),
-	\pl1,Pxrand(~list,inf),
-	\pl2,Pbrown(0,11,inf),
-		\octave,Prand([1,2,4],inf),
-	\decay,Pbrown(4,8,1,inf),
-	\speed,Prand([1,3/4,2/3,1/2],inf);
-));
-	);
-TempoClock.default.tempo_(2);
-/////with tempo 1 and ~time 1 overall duration of a is 2.08 min
-
-
-//a.play;
-
 
 SerialPort.devices;
 ~port = SerialPort.new("/dev/cu.usbserial-210",9600);
 
+		(
+~charArray = [];
+~getValues = Routine.new({
+
+	var ascii;
+	{ascii = ~port.read.asAscii;
+		if(ascii.isDecDigit, {~charArray = ~charArray.add(ascii)});
+		if(ascii == $a,{~val = ~charArray.collect(_.digit).convertDigits;
+			~charArray =[];
+		});
+	}.loop;
+
+}).play
+);
+
+
+(
+		//1.wait;
+~synth=Synth.new(\light, [\pl1,1]);
+(~control = Routine.new({
+	{
+	~synth.set(\pl1,~val.linlin(100,1200,0,720*~time));
+		0.01.wait;
+	}.loop;
+}).play;
+	))
 
 	}
 )
